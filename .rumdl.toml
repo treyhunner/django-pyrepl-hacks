@@ -1,0 +1,12 @@
+[global]
+# MD041 wants a level 1 heading first; AGENTS.md and CLAUDE.md open with
+# prose and a pointer, which is what their readers want.
+disable = ["MD013", "MD041"]
+exclude = [
+    ".git",
+    "dist",
+    "build",
+]
+
+[MD012]
+maximum = 2  # Maximum number of consecutive blank lines allowed
