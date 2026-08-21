@@ -51,8 +51,14 @@ uv pip install --editable /path/to/django-pyrepl-hacks
 
 1. Update `CHANGELOG.md`
 2. `just bump patch` (or `minor` or `major`)
-3. Commit, then tag the commit with a `v` prefix on the new version (`v0.1.1`, for example)
-4. Push the tag, which builds and publishes from CI
+3. Commit the bump
+4. `just release`
+
+`just release` runs the full checks, then refuses to go any further if HEAD is not on `main`, the working tree is dirty, `CHANGELOG.md` has no section for the version, or the tag already exists.
+Only then does it tag and push, and pushing the tag is what builds and publishes from CI.
+
+There is no `publish` recipe.
+Publishing from a laptop would need a PyPI token this project deliberately does not have, and it would skip the tag/version check and the test run that the release workflow does first.
 
 [uv]: https://docs.astral.sh/uv/
 [just]: https://just.systems
