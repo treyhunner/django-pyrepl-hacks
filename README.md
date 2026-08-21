@@ -26,6 +26,12 @@ So this package pins its supported Python versions to the ones known to work.
 This needs Python 3.13 or 3.14 and Django 5.2 or later.
 
 ```console
+uv add django-pyrepl-hacks
+```
+
+Or with pip:
+
+```console
 python -m pip install django-pyrepl-hacks
 ```
 
@@ -50,6 +56,21 @@ $ ./manage.py shell
 
 The other interfaces are still there, so `manage.py shell -i ipython` works as before.
 So does everything else the shell command does: `-c`, piped stdin, `--no-imports`, and `--no-startup`.
+
+### A note on dependency groups
+
+`INSTALLED_APPS` is read wherever Django starts, so this belongs with your regular dependencies rather than in a dev-only group.
+A dev-only install plus an unconditional `INSTALLED_APPS` entry means production cannot start at all.
+
+If you would rather keep it out of production, gate the entry too:
+
+```python
+if DEBUG:
+    INSTALLED_APPS += ["django_pyrepl_hacks"]
+```
+
+Production then falls back to Django's own shell, which means a production shell loses the auto-imported models as well.
+Shipping it is usually the smaller cost: the package is pure Python and depends on nothing but Django and [pyrepl-hacks][].
 
 
 ## Default key bindings ⌨️
