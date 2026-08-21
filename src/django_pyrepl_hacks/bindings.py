@@ -11,6 +11,7 @@ from __future__ import annotations
 import inspect
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from difflib import get_close_matches
 
 from django.core.exceptions import ImproperlyConfigured
 
@@ -92,25 +93,63 @@ def _command_name(function: Callable[..., None]) -> str:
     return name.replace("_", "-")
 
 
+def _known_commands() -> set[str]:
+    """Return the command names the current reader will answer to.
+
+    This is why an unknown command name cannot be a system check: the answer
+    only exists once a reader has been built, and building one opens the tty.
+    """
+    from _pyrepl.simple_interact import _get_reader
+
+    return set(_get_reader().commands)
+
+
+def _check_command_name(keybinding: str, name: str, known: set[str]) -> None:
+    """Reject a command name the reader does not know.
+
+    `Reader.bind` appends to the keymap without validating, and resolution
+    happens at keypress time against `commands.get(...)`, falling back to
+    `invalid-command`. So a typo binds cleanly and then the key does nothing
+    at all, with nothing ever printed.
+    """
+    if name in known:
+        return
+    message = f"PYREPL_BINDINGS[{keybinding!r}] is {name!r}, which is not a command."
+    if suggestions := get_close_matches(name, sorted(known), n=3):
+        raise ImproperlyConfigured(
+            f"{message} Did you mean {' or '.join(repr(s) for s in suggestions)}?",
+        )
+    raise ImproperlyConfigured(message)
+
+
 def apply_bindings(bindings: Mapping[str, Binding]) -> None:
     """Bind every key in ``bindings`` in the current REPL reader."""
     import pyrepl_hacks as repl
 
+    known = _known_commands()
     for keybinding, target in bindings.items():
-        match target:
-            case str():
-                repl.bind(keybinding, target)
-            case Insert(text=text):
-                repl.bind_to_insert(keybinding, text)
-            case _ if callable(target):
-                name = _command_name(target)
-                repl.register_command(name, with_event=_wants_event(target))(target)
-                repl.bind(keybinding, name)
-            case _:
-                raise ImproperlyConfigured(
-                    f"PYREPL_BINDINGS[{keybinding!r}] should be a command name, "
-                    f"an insert(...) value, or a function, not {target!r}.",
-                )
+        try:
+            match target:
+                case str():
+                    _check_command_name(keybinding, target, known)
+                    repl.bind(keybinding, target)
+                case Insert(text=text):
+                    repl.bind_to_insert(keybinding, text)
+                case _ if callable(target):
+                    name = _command_name(target)
+                    repl.register_command(name, with_event=_wants_event(target))(target)
+                    repl.bind(keybinding, name)
+                case _:
+                    raise ImproperlyConfigured(
+                        f"PYREPL_BINDINGS[{keybinding!r}] should be a command name, "
+                        f"an insert(...) value, or a function, not {target!r}.",
+                    )
+        except ValueError as error:
+            # pyrepl-hacks raises this for a key combination it cannot spell,
+            # naming the key but not the setting it came from.
+            raise ImproperlyConfigured(
+                f"PYREPL_BINDINGS[{keybinding!r}] is not a usable key: {error}",
+            ) from error
 
 
 def describe(target: Binding) -> str:

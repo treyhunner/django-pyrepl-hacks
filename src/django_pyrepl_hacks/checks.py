@@ -12,7 +12,7 @@ from __future__ import annotations
 import sys
 from typing import Any
 
-from django.core.checks import Error, Warning
+from django.core.checks import Warning
 from django.core.exceptions import ImproperlyConfigured
 
 from . import conf, repl
@@ -53,51 +53,51 @@ def _check_bindings() -> list[Any]:
     try:
         bindings = conf.get_bindings()
     except ImproperlyConfigured as error:
-        return [_error(f"PYREPL_BINDINGS is invalid: {error}", "pyrepl_hacks.E001")]
-    errors: list[Error] = []
+        return [_warn(f"PYREPL_BINDINGS is invalid: {error}", "pyrepl_hacks.W002")]
+    warnings: list[Warning] = []
     for key, target in bindings.items():
         if not isinstance(target, str | Insert) and not callable(target):
-            errors.append(
-                _error(
+            warnings.append(
+                _warn(
                     f"PYREPL_BINDINGS[{key!r}] is {target!r}, which is not a command "
                     "name, an insert(...) value, or a function.",
-                    "pyrepl_hacks.E002",
+                    "pyrepl_hacks.W003",
                 ),
             )
         elif getattr(target, "__name__", None) == "<lambda>":
             # A command is registered under a name, and a lambda has none.
-            errors.append(
-                _error(
+            warnings.append(
+                _warn(
                     f"PYREPL_BINDINGS[{key!r}] is a lambda, which has no name to "
                     "register a command under.",
-                    "pyrepl_hacks.E003",
+                    "pyrepl_hacks.W004",
                     hint="Use a def, or insert(...) if you just want to insert text.",
                 ),
             )
-    return errors
+    return warnings
 
 
 def _check_theme() -> list[Any]:
     try:
         theme = conf.get_theme()
     except ImproperlyConfigured as error:
-        return [_error(f"PYREPL_THEME is invalid: {error}", "pyrepl_hacks.E004")]
+        return [_warn(f"PYREPL_THEME is invalid: {error}", "pyrepl_hacks.W005")]
     if theme and sys.version_info < repl.THEME_REQUIRES:
         return [
-            Warning(
+            _warn(
                 "PYREPL_THEME needs Python 3.14 or later, so the shell will "
                 "refuse to start with it set.",
+                "pyrepl_hacks.W001",
                 hint="Remove the setting to use the REPL's own colors.",
-                id="pyrepl_hacks.W001",
             ),
         ]
     unknown = sorted(set(theme) - THEME_TOKENS)
     if not unknown:
         return []
     return [
-        _error(
+        _warn(
             f"PYREPL_THEME has unknown token names: {', '.join(unknown)}.",
-            "pyrepl_hacks.E005",
+            "pyrepl_hacks.W006",
             hint=f"Known tokens: {', '.join(sorted(THEME_TOKENS))}.",
         ),
     ]
@@ -105,11 +105,18 @@ def _check_theme() -> list[Any]:
 
 def _check_setup() -> list[Any]:
     try:
-        conf.get_setup_hooks()
+        conf.validate_setup()
     except ImproperlyConfigured as error:
-        return [_error(f"PYREPL_SETUP is invalid: {error}", "pyrepl_hacks.E006")]
+        return [_warn(f"PYREPL_SETUP is invalid: {error}", "pyrepl_hacks.W007")]
     return []
 
 
-def _error(message: str, check_id: str, hint: str | None = None) -> Error:
-    return Error(message, hint=hint, id=check_id)
+def _warn(message: str, check_id: str, hint: str | None = None) -> Warning:
+    """Report a problem without blocking.
+
+    These settings only affect the REPL, and `shell` sets
+    `requires_system_checks = []`, so these checks never run for the command
+    they describe. An Error here would abort `migrate` and `collectstatic`
+    over a key binding, which is the wrong trade every time.
+    """
+    return Warning(message, hint=hint, id=check_id)

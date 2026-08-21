@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from io import StringIO
 from unittest import TestCase, mock
 
+from django.core.exceptions import ImproperlyConfigured
 from django.core.management import CommandError, call_command
 from django.test import override_settings
 
@@ -45,6 +46,13 @@ class ShowBindingsTests(TestCase):
         lines = output.getvalue().splitlines()
         self.assertIn("Alt+M      move-to-indentation", lines)
         self.assertIn("Shift+Tab  dedent", lines)
+
+    @override_settings(PYREPL_BINDINGS={"F4": lambda reader: None})
+    def test_a_bad_setting_is_reported_not_raised_raw(self):
+        """This flag is the only pre-flight there is, so it must not crash."""
+        with self.assertRaises(CommandError) as context:
+            call_command("shell", show_bindings=True, stdout=StringIO())
+        self.assertIn("lambda", str(context.exception))
 
     @override_settings(PYREPL_USE_DEFAULT_BINDINGS=False)
     def test_an_empty_configuration_says_so(self):
@@ -89,6 +97,28 @@ class PyreplInterfaceTests(TestCase):
         with running_pyrepl() as console:
             self.command.pyrepl({"no_startup": True})
         self.assertIs(console.call_args.kwargs["pythonstartup"], False)
+
+    def test_a_misconfigured_setting_is_reported_rather_than_falling_back(self):
+        # ImproperlyConfigured and ValueError used to escape as raw tracebacks.
+        for error in (
+            ImproperlyConfigured("PYREPL_BINDINGS['F4'] is not a command"),
+            ValueError("Key combo ctrl+shift+k not yet supported"),
+        ):
+            with self.subTest(error=type(error).__name__):
+                with (
+                    running_pyrepl(side_effect=error),
+                    self.assertRaises(CommandError) as context,
+                ):
+                    self.command.pyrepl({"no_startup": True})
+                self.assertIn(str(error), str(context.exception))
+
+    def test_a_missing_pyrepl_hacks_still_declines_the_interface(self):
+        # The one ImportError that really does mean "not available here".
+        with (
+            running_pyrepl(side_effect=ModuleNotFoundError(name="pyrepl_hacks")),
+            self.assertRaises(ModuleNotFoundError),
+        ):
+            self.command.pyrepl({"no_startup": True})
 
     def test_a_broken_setup_is_reported_rather_than_falling_back(self):
         # An ImportError from our own setup used to read as "this interface is

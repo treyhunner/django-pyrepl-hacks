@@ -357,7 +357,21 @@ A mistake in your own configuration is a different thing: the shell reports it r
 
 ## Checks ✅
 
-`manage.py check` validates every `PYREPL_*` setting, so a typo turns up before you are staring at a broken prompt.
+`manage.py check` validates the `PYREPL_*` settings it can, so a mistake turns up before you are staring at a broken prompt.
+
+Everything it reports is a warning rather than an error.
+These settings only affect the REPL, and an error would abort `migrate` and `collectstatic` over a key binding.
+
+Two mistakes it cannot catch, because both need a REPL reader and building one opens the terminal:
+a command name that does not exist, and a key combination that cannot be spelled.
+Those are caught when the shell starts, and reported against the setting they came from:
+
+```console
+$ ./manage.py shell
+CommandError: Could not set up the REPL: PYREPL_BINDINGS['Ctrl+G'] is 'hom', which is not a command. Did you mean 'home'?
+```
+
+`manage.py shell --show-bindings` is the cheapest way to check your configuration, since it resolves the same settings without starting a REPL.
 
 
 ## Contributing 🤝

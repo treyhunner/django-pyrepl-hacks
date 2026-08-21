@@ -1,6 +1,26 @@
 # Changelog
 
 
+## 0.1.1 (2026-08-21)
+
+Fixes for how configuration mistakes are reported. No API changes.
+
+- System checks are warnings rather than errors.
+  As errors they aborted `migrate` and `collectstatic` over a REPL setting,
+  while never running for `shell` itself, which sets
+  `requires_system_checks = []`
+- The `PYREPL_SETUP` check no longer imports the hook, which pulled REPL-only
+  code into every `migrate`
+- A command name that does not exist is now rejected when the shell starts,
+  with a suggestion. It used to bind cleanly and leave the key doing nothing
+- A key combination that cannot be spelled now names the setting it came from,
+  instead of escaping as a raw `ValueError` traceback
+- `manage.py shell --show-bindings` reports a bad setting instead of raising
+  the exception it exists to warn about
+- Removed a redundant `load_pyrepl_hacks()` call that sat outside the shell
+  command's error handling, where an `ImportError` from it read as "interface
+  unavailable" and silently downgraded the shell
+
 ## 0.1.0 (2026-08-21)
 
 Initial release.

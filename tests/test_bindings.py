@@ -4,6 +4,7 @@ from unittest import TestCase, mock
 
 from django.core.exceptions import ImproperlyConfigured
 
+from django_pyrepl_hacks import bindings
 from django_pyrepl_hacks.bindings import (
     DEFAULT_BINDINGS,
     Insert,
@@ -54,6 +55,36 @@ class ApplyBindingsTests(TestCase):
         patcher = mock.patch.dict("sys.modules", {"pyrepl_hacks": self.repl})
         patcher.start()
         self.addCleanup(patcher.stop)
+        # Asking the reader what commands exist needs a terminal.
+        known = mock.patch.object(
+            bindings,
+            "_known_commands",
+            return_value={"home", "move-to-indentation", "dedent", "kill-line"},
+        )
+        known.start()
+        self.addCleanup(known.stop)
+
+    def test_an_unknown_command_name_is_rejected(self):
+        with self.assertRaises(ImproperlyConfigured) as context:
+            apply_bindings({"Ctrl+G": "hom"})
+        message = str(context.exception)
+        self.assertIn("PYREPL_BINDINGS['Ctrl+G']", message)
+        self.assertIn("not a command", message)
+        self.assertIn("'home'", message)  # suggests the near miss
+        self.repl.bind.assert_not_called()
+
+    def test_an_unknown_command_with_no_near_miss_still_reports(self):
+        with self.assertRaises(ImproperlyConfigured) as context:
+            apply_bindings({"Ctrl+G": "zzzzzzzz"})
+        self.assertIn("not a command", str(context.exception))
+
+    def test_an_unusable_key_names_the_setting(self):
+        self.repl.bind.side_effect = ValueError("Key combo ctrl+shift+k not supported")
+        with self.assertRaises(ImproperlyConfigured) as context:
+            apply_bindings({"Ctrl+Shift+K": "home"})
+        message = str(context.exception)
+        self.assertIn("PYREPL_BINDINGS['Ctrl+Shift+K']", message)
+        self.assertIn("not a usable key", message)
 
     def test_command_names_bind_directly(self):
         apply_bindings({"Alt+M": "move-to-indentation"})

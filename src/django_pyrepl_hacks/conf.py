@@ -20,6 +20,7 @@ __all__ = [
     "get_bindings",
     "get_setup_hooks",
     "get_theme",
+    "validate_setup",
 ]
 
 
@@ -44,23 +45,41 @@ def get_theme() -> dict[str, str]:
     return dict(theme)
 
 
+def _setup_entries() -> list[object]:
+    """Return ``PYREPL_SETUP`` as a list, without importing anything."""
+    configured = _setting("SETUP", [])
+    if configured is None:
+        return []
+    if callable(configured) or isinstance(configured, str):
+        return [configured]
+    if not isinstance(configured, Sequence):
+        raise ImproperlyConfigured(
+            "PYREPL_SETUP should be a callable, an import path, or a list of them.",
+        )
+    return list(configured)
+
+
+def validate_setup() -> None:
+    """Check the shape of ``PYREPL_SETUP`` without importing the hooks.
+
+    A system check runs during `migrate` and `collectstatic`, so importing a
+    hook here would drag REPL-only code into every deploy and fail it if that
+    code is not installed there. Import paths are therefore only checked for
+    being strings; whether they resolve is found out when the REPL starts.
+    """
+    for hook in _setup_entries():
+        if not callable(hook) and not isinstance(hook, str):
+            raise ImproperlyConfigured(f"PYREPL_SETUP entry {hook!r} is not callable.")
+
+
 def get_setup_hooks() -> list[Callable[[], None]]:
     """Return the callables configured by ``PYREPL_SETUP``.
 
     A single callable, a single dotted path, or a sequence of either is
     accepted, since one hook is the common case and a list is the general one.
     """
-    configured = _setting("SETUP", [])
-    if configured is None:
-        return []
-    if callable(configured) or isinstance(configured, str):
-        configured = [configured]
-    if not isinstance(configured, Sequence):
-        raise ImproperlyConfigured(
-            "PYREPL_SETUP should be a callable, an import path, or a list of them.",
-        )
-    hooks = []
-    for hook in configured:
+    hooks: list[Callable[[], None]] = []
+    for hook in _setup_entries():
         if isinstance(hook, str):
             try:
                 hook = import_string(hook)

@@ -40,6 +40,14 @@ There is no Django project in the repository: `runtests.py` points at `tests/set
   They were cut because a hook does both in four lines, and the banner alone was a quarter of the package.
   `PYREPL_SETUP` is the only primitive here; everything else is a declarative convenience over it, and each one has to earn that.
 
+- **A system check must never be an `Error` here.**
+  `shell` sets `requires_system_checks = []`, so these checks never run for the command they describe; the commands that do run them are `migrate` and `collectstatic`.
+  An `Error` therefore cannot help the person with the broken setting and can only block a deploy over a key binding.
+  For the same reason `checks.py` validates the *shape* of `PYREPL_SETUP` without importing it: resolving the path would drag REPL-only code into every migrate.
+
+- **Two mistakes can only be caught with a live reader**, so they live in `apply_bindings` rather than in `checks.py`: a command name the reader does not know, and a key combination `to_keyspec` cannot spell.
+  `Reader.bind` appends to the keymap without validating and resolves at keypress time, so an unchecked typo binds cleanly and leaves the key silently dead.
+
 ## Deliberately not done yet
 
 - **Named themes.**

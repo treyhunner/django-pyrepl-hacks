@@ -7,6 +7,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.test import override_settings
 
 from django_pyrepl_hacks import repl
+from django_pyrepl_hacks.bindings import DEFAULT_BINDINGS
 
 
 class SetupTests(TestCase):
@@ -15,6 +16,12 @@ class SetupTests(TestCase):
         patcher = mock.patch.dict("sys.modules", {"pyrepl_hacks": self.repl_hacks})
         patcher.start()
         self.addCleanup(patcher.stop)
+        known = mock.patch(
+            "django_pyrepl_hacks.bindings._known_commands",
+            return_value=set(DEFAULT_BINDINGS.values()),
+        )
+        known.start()
+        self.addCleanup(known.stop)
 
     def test_default_bindings_are_applied(self):
         repl.setup()
