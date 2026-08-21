@@ -64,6 +64,35 @@ build:
     uv sync  # Force uv version error if applicable
     uv build --clear
 
-# Publishing is not a recipe: pushing a v* tag builds and publishes from CI,
-# which checks the tag against the version and runs the tests first. See the
-# release steps in CONTRIBUTING.md.
+# Tag the current version and push, which publishes to PyPI via GitHub Actions
+release: check
+    #!/usr/bin/env bash
+    set -euo pipefail
+    version="$(uv version --short)"
+    branch="$(git branch --show-current)"
+    if [ "$branch" != "main" ]; then
+        echo "Releases happen from main, but HEAD is on $branch." >&2
+        exit 1
+    fi
+    if [ -n "$(git status --porcelain)" ]; then
+        echo "Working tree is dirty. Commit the version bump first." >&2
+        exit 1
+    fi
+    # A release nobody can read the notes for is worth catching while the
+    # tag is still the only thing that exists.
+    if ! grep -q "^## ${version}\b" CHANGELOG.md; then
+        echo "CHANGELOG.md has no '## ${version}' section." >&2
+        exit 1
+    fi
+    if git rev-parse "v${version}" >/dev/null 2>&1; then
+        echo "Tag v${version} already exists. Run 'just bump' first." >&2
+        exit 1
+    fi
+    git tag -a "v${version}" -m "Version ${version}"
+    git push origin main "v${version}"
+    echo "Pushed v${version}. Watch the release run:"
+    echo "  https://github.com/treyhunner/django-pyrepl-hacks/actions"
+
+# There is no `publish` recipe: `uv publish` from a laptop needs a token this
+# project deliberately does not have, and it would skip the tag/version check
+# and the test run that the release workflow does first. Use `just release`.
