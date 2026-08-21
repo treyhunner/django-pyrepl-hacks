@@ -59,11 +59,11 @@ check:
 bump value:
     uv version --bump {{ value }}
 
-# Build the package
+# Build the package locally, to inspect the wheel or sdist
 build:
     uv sync  # Force uv version error if applicable
     uv build --clear
 
-# Publish to PyPI
-publish:
-    uv publish
+# Publishing is not a recipe: pushing a v* tag builds and publishes from CI,
+# which checks the tag against the version and runs the tests first. See the
+# release steps in CONTRIBUTING.md.
