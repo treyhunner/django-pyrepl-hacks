@@ -16,6 +16,10 @@ prek *args:
 # Run the tests on both Python versions
 test *args:
     #!/usr/bin/env bash
+    # Without this a failing run still exits 0, because the exit code is
+    # whichever command ran last. That silently disarms `just check`, and
+    # everything that depends on it, `just release` included.
+    set -euo pipefail
     if [[ -n "{{ args }}" ]]; then
         # Run without coverage
         uv run --python 3.13 --group test python runtests.py {{ args }}

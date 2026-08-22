@@ -125,22 +125,45 @@ class ApplyBindingsTests(TestCase):
 
 
 class KnownCommandsTests(TestCase):
-    """The real `_known_commands`, which the tests above deliberately mock."""
+    """The real `_known_commands`, which the tests above deliberately mock.
+
+    Whether a reader can be built depends on whether the suite is run from a
+    terminal, so these force the answer rather than reading the environment.
+    An earlier version asserted the sandbox's answer and passed in CI while
+    failing on a developer's machine, which is the wrong way round.
+    """
+
+    def setUp(self):
+        self.repl = mock.Mock()
+        patcher = mock.patch.dict("sys.modules", {"pyrepl_hacks": self.repl})
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def test_no_reader_means_no_validation_rather_than_an_error(self):
         """A downstream test standing in for pyrepl_hacks must still work.
 
-        There is no tty under a test runner, so building a reader raises.
-        Raising here made `manage.py shell` unmockable from the outside and
-        broke a downstream suite that stubbed `pyrepl_hacks` (0.1.1).
+        Building a reader opens the tty, which a test runner has not got.
+        Raising made `manage.py shell` unmockable from the outside and broke
+        a downstream suite that stubbed `pyrepl_hacks` (0.1.1).
         """
-        self.assertIsNone(bindings._known_commands())
+        with mock.patch.dict(
+            "sys.modules",
+            {"_pyrepl.simple_interact": None},  # importing None raises
+        ):
+            self.assertIsNone(bindings._known_commands())
 
     def test_binding_still_works_with_no_reader_to_validate_against(self):
-        repl = mock.Mock()
-        with mock.patch.dict("sys.modules", {"pyrepl_hacks": repl}):
+        with mock.patch.object(bindings, "_known_commands", return_value=None):
             apply_bindings({"Alt+M": "move-to-indentation"})
-        repl.bind.assert_called_once_with("Alt+M", "move-to-indentation")
+        self.repl.bind.assert_called_once_with("Alt+M", "move-to-indentation")
+
+    def test_a_reader_that_answers_is_used_to_validate(self):
+        reader = mock.Mock(commands={"home", "dedent"})
+        with mock.patch.dict(
+            "sys.modules",
+            {"_pyrepl.simple_interact": mock.Mock(_get_reader=lambda: reader)},
+        ):
+            self.assertEqual(bindings._known_commands(), {"home", "dedent"})
 
 
 class DescribeTests(TestCase):
