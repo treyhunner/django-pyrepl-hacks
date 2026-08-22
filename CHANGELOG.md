@@ -1,6 +1,14 @@
 # Changelog
 
 
+## 0.1.2 (2026-08-21)
+
+- Fix a regression in 0.1.1 that made the shell command impossible to mock.
+  Validating a command name needs a REPL reader, and asking for one raised
+  under a test runner, so a project testing its own shell wiring by standing
+  in for `pyrepl-hacks` got a `RuntimeError`. With no reader there is nothing
+  real to validate against, so validation is now skipped rather than raised
+
 ## 0.1.1 (2026-08-21)
 
 Fixes for how configuration mistakes are reported. No API changes.

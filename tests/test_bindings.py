@@ -124,6 +124,25 @@ class ApplyBindingsTests(TestCase):
         self.assertIn("PYREPL_BINDINGS['F4']", str(context.exception))
 
 
+class KnownCommandsTests(TestCase):
+    """The real `_known_commands`, which the tests above deliberately mock."""
+
+    def test_no_reader_means_no_validation_rather_than_an_error(self):
+        """A downstream test standing in for pyrepl_hacks must still work.
+
+        There is no tty under a test runner, so building a reader raises.
+        Raising here made `manage.py shell` unmockable from the outside and
+        broke a downstream suite that stubbed `pyrepl_hacks` (0.1.1).
+        """
+        self.assertIsNone(bindings._known_commands())
+
+    def test_binding_still_works_with_no_reader_to_validate_against(self):
+        repl = mock.Mock()
+        with mock.patch.dict("sys.modules", {"pyrepl_hacks": repl}):
+            apply_bindings({"Alt+M": "move-to-indentation"})
+        repl.bind.assert_called_once_with("Alt+M", "move-to-indentation")
+
+
 class DescribeTests(TestCase):
     def test_command_names_describe_themselves(self):
         self.assertEqual(describe("dedent"), "dedent")

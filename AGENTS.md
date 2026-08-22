@@ -47,6 +47,7 @@ There is no Django project in the repository: `runtests.py` points at `tests/set
 
 - **Two mistakes can only be caught with a live reader**, so they live in `apply_bindings` rather than in `checks.py`: a command name the reader does not know, and a key combination `to_keyspec` cannot spell.
   `Reader.bind` appends to the keymap without validating and resolves at keypress time, so an unchecked typo binds cleanly and leaves the key silently dead.
+  `_known_commands()` returns `None` rather than raising when no reader can be built, because a downstream project's tests stand in for `pyrepl_hacks` and have no tty: raising made this package unmockable from the outside and broke Python Morsels' shell tests in 0.1.1.
 
 ## Deliberately not done yet
 

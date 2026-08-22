@@ -93,18 +93,34 @@ def _command_name(function: Callable[..., None]) -> str:
     return name.replace("_", "-")
 
 
-def _known_commands() -> set[str]:
+def _known_commands() -> set[str] | None:
     """Return the command names the current reader will answer to.
 
     This is why an unknown command name cannot be a system check: the answer
     only exists once a reader has been built, and building one opens the tty.
+
+    Returns None when there is no reader to ask. By the time bindings are
+    applied the shell has already confirmed the REPL can run, so in practice
+    that means a test standing in for `pyrepl_hacks`, where the binds go to a
+    stub and there is nothing real to validate them against. Declining to
+    validate is right there; raising would make this package impossible to
+    mock from the outside, which broke a downstream test suite once already.
     """
-    from _pyrepl.simple_interact import _get_reader
+    try:
+        from _pyrepl.simple_interact import _get_reader
 
-    return set(_get_reader().commands)
+        return set(_get_reader().commands)
+    except Exception:  # noqa: BLE001
+        # Deliberately broad. This is a best-effort probe, and the ways it
+        # fails are environment-specific: a RuntimeError from termios with no
+        # tty on 3.13, a TypeError out of the import machinery on 3.14 once a
+        # test has stood in for part of the module tree. Every one of them
+        # means the same thing, and the cost of being wrong is only that a
+        # command name goes unvalidated, which is what 0.1.0 did anyway.
+        return None
 
 
-def _check_command_name(keybinding: str, name: str, known: set[str]) -> None:
+def _check_command_name(keybinding: str, name: str, known: set[str] | None) -> None:
     """Reject a command name the reader does not know.
 
     `Reader.bind` appends to the keymap without validating, and resolution
@@ -112,7 +128,7 @@ def _check_command_name(keybinding: str, name: str, known: set[str]) -> None:
     `invalid-command`. So a typo binds cleanly and then the key does nothing
     at all, with nothing ever printed.
     """
-    if name in known:
+    if known is None or name in known:
         return
     message = f"PYREPL_BINDINGS[{keybinding!r}] is {name!r}, which is not a command."
     if suggestions := get_close_matches(name, sorted(known), n=3):
