@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "django-pyrepl-hacks"
-version = "0.1.2"
+version = "0.2.0"
 description = "A Django shell that uses the new Python REPL, with pyrepl-hacks key bindings."
 readme = "README.md"
 requires-python = ">=3.13,<3.16"
