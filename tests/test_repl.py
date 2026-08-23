@@ -1,6 +1,5 @@
 """Tests for configuring the REPL just before it starts."""
 
-import builtins
 from unittest import TestCase, mock
 
 from django.core.exceptions import ImproperlyConfigured
@@ -66,12 +65,11 @@ class SetupTests(TestCase):
 
 class LoadPyreplHacksTests(TestCase):
     def test_a_runtime_error_becomes_an_import_error(self):
-        def explode(name, *args, **kwargs):
-            if name == "pyrepl_hacks":
-                raise RuntimeError("no terminal here")
-            return original_import(name, *args, **kwargs)
+        # `load_pyrepl_hacks` imports one module and nothing else, so breaking
+        # every import for the length of the call breaks only that one.
+        def explode(*args, **kwargs):
+            raise RuntimeError("no terminal here")
 
-        original_import = builtins.__import__
         with (
             mock.patch("builtins.__import__", explode),
             self.assertRaises(ImportError) as context,

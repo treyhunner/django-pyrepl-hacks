@@ -69,10 +69,16 @@ def resolve_bindings(
 
 
 def _wants_event(function: Callable[..., None]) -> bool:
-    """Return whether ``function`` expects ``(reader, event_name, event)``."""
+    """Return whether ``function`` expects ``(reader, event_name, event)``.
+
+    Not every callable has a signature to read: `inspect.signature` raises
+    ValueError for a builtin like `dict`, whose C definition never spelled one
+    out. Nothing like that is a plausible REPL command, so the answer only has
+    to be harmless, and the plain `(reader)` shape is.
+    """
     try:
         signature = inspect.signature(function)
-    except (TypeError, ValueError):
+    except ValueError:
         return False
     parameters = [
         parameter
@@ -138,6 +144,14 @@ def _check_command_name(keybinding: str, name: str, known: set[str] | None) -> N
     raise ImproperlyConfigured(message)
 
 
+def _not_a_binding(keybinding: str, target: object) -> ImproperlyConfigured:
+    """Return the error for a target that is none of the shapes we handle."""
+    return ImproperlyConfigured(
+        f"PYREPL_BINDINGS[{keybinding!r}] should be a command name, "
+        f"an insert(...) value, or a function, not {target!r}.",
+    )
+
+
 def apply_bindings(bindings: Mapping[str, Binding]) -> None:
     """Bind every key in ``bindings`` in the current REPL reader."""
     import pyrepl_hacks as repl
@@ -156,10 +170,7 @@ def apply_bindings(bindings: Mapping[str, Binding]) -> None:
                     repl.register_command(name, with_event=_wants_event(target))(target)
                     repl.bind(keybinding, name)
                 case _:
-                    raise ImproperlyConfigured(
-                        f"PYREPL_BINDINGS[{keybinding!r}] should be a command name, "
-                        f"an insert(...) value, or a function, not {target!r}.",
-                    )
+                    raise _not_a_binding(keybinding, target)
         except ValueError as error:
             # pyrepl-hacks raises this for a key combination it cannot spell,
             # naming the key but not the setting it came from.
@@ -168,8 +179,14 @@ def apply_bindings(bindings: Mapping[str, Binding]) -> None:
             ) from error
 
 
-def describe(target: Binding) -> str:
-    """Return a short human-readable description of a binding target."""
+def describe(keybinding: str, target: Binding) -> str:
+    """Return a short human-readable description of a binding target.
+
+    Nothing guards this: `--show-bindings` reads the setting and describes it,
+    without ever going near `apply_bindings`. So a target of the wrong shape
+    is reported here, the way binding one would report it. Printing its repr
+    instead passed the only pre-flight there is and then failed at startup.
+    """
     match target:
         case str():
             return target
@@ -177,5 +194,5 @@ def describe(target: Binding) -> str:
             return f"insert {text!r}"
         case _ if callable(target):
             return _command_name(target)
-        case _:  # pragma: no cover - guarded by apply_bindings
-            return repr(target)
+        case _:
+            raise _not_a_binding(keybinding, target)

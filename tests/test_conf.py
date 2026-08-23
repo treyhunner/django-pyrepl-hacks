@@ -11,10 +11,6 @@ from django_pyrepl_hacks.bindings import DEFAULT_BINDINGS
 
 def a_hook():
     """A setup hook that PYREPL_SETUP tests import by path."""
-    a_hook.calls += 1
-
-
-a_hook.calls = 0
 
 
 class GetBindingsTests(TestCase):
@@ -83,3 +79,17 @@ class GetSetupHooksTests(TestCase):
     def test_something_that_is_neither_is_rejected(self):
         with self.assertRaises(ImproperlyConfigured):
             conf.get_setup_hooks()
+
+
+class ValidateSetupTests(TestCase):
+    """The shape check that runs as a system check, without importing hooks."""
+
+    @override_settings(PYREPL_SETUP=["tests.test_conf.a_hook", a_hook])
+    def test_callables_and_import_paths_pass(self):
+        conf.validate_setup()
+
+    @override_settings(PYREPL_SETUP=[42])
+    def test_a_non_callable_entry_is_rejected(self):
+        with self.assertRaises(ImproperlyConfigured) as context:
+            conf.validate_setup()
+        self.assertIn("42", str(context.exception))

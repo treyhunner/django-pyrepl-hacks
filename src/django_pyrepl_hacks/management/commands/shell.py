@@ -35,7 +35,10 @@ class Command(BaseShellCommand):
     def show_bindings(self) -> None:
         """Write the resolved key bindings to stdout, aligned on the widest key."""
         try:
-            bindings = {key: describe(t) for key, t in conf.get_bindings().items()}
+            bindings = {
+                key: describe(key, target)
+                for key, target in conf.get_bindings().items()
+            }
         except ImproperlyConfigured as error:
             raise CommandError(str(error)) from error
         if not bindings:

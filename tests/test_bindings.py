@@ -113,6 +113,13 @@ class ApplyBindingsTests(TestCase):
         apply_bindings({"F4": show_time})
         self.repl.register_command.assert_called_once_with("show-time", with_event=True)
 
+    def test_a_callable_with_no_readable_signature_is_still_bound(self):
+        # `inspect.signature(dict)` raises ValueError, since C never described
+        # it. That is not a reason to refuse the binding.
+        apply_bindings({"F4": dict})
+        self.repl.register_command.assert_called_once_with("dict", with_event=False)
+        self.repl.bind.assert_called_once_with("F4", "dict")
+
     def test_lambdas_are_rejected(self):
         with self.assertRaises(ImproperlyConfigured) as context:
             apply_bindings({"F4": lambda reader: None})
@@ -168,13 +175,22 @@ class KnownCommandsTests(TestCase):
 
 class DescribeTests(TestCase):
     def test_command_names_describe_themselves(self):
-        self.assertEqual(describe("dedent"), "dedent")
+        self.assertEqual(describe("Alt+M", "dedent"), "dedent")
 
     def test_inserts_show_their_text(self):
-        self.assertEqual(describe(insert("hi")), "insert 'hi'")
+        self.assertEqual(describe("Ctrl+N", insert("hi")), "insert 'hi'")
 
     def test_functions_show_their_command_name(self):
         def show_time(reader):
             """A command."""
 
-        self.assertEqual(describe(show_time), "show-time")
+        self.assertEqual(describe("F4", show_time), "show-time")
+
+    def test_a_target_of_the_wrong_shape_is_rejected(self):
+        # Nothing has validated the setting by this point: `--show-bindings`
+        # reads it and describes it, and that is the whole path.
+        with self.assertRaises(ImproperlyConfigured) as context:
+            describe("F4", 42)
+        message = str(context.exception)
+        self.assertIn("PYREPL_BINDINGS['F4']", message)
+        self.assertIn("42", message)

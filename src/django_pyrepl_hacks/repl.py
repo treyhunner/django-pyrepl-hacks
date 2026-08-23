@@ -27,7 +27,9 @@ def can_use_pyrepl() -> tuple[bool, str]:
     """
     try:
         from _pyrepl.main import CAN_USE_PYREPL, FAIL_REASON
-    except ImportError as error:  # pragma: no cover - Python 3.12 and earlier
+    except ImportError as error:
+        # `_pyrepl` is private, so a Python that ships without it is one this
+        # interface has to decline rather than crash in front of.
         return False, str(error)
     return CAN_USE_PYREPL, FAIL_REASON
 

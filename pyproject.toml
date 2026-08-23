@@ -60,6 +60,10 @@ source-include = ["tests/**", "CHANGELOG.md"]
 [tool.coverage.run]
 source = ["django_pyrepl_hacks", "tests"]
 
+[tool.coverage.report]
+fail_under = 100
+show_missing = true
+
 [tool.ruff]
 target-version = "py313"
 line-length = 88

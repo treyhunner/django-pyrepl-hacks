@@ -54,6 +54,15 @@ class ShowBindingsTests(TestCase):
             call_command("shell", show_bindings=True, stdout=StringIO())
         self.assertIn("lambda", str(context.exception))
 
+    @override_settings(PYREPL_BINDINGS={"F4": 42})
+    def test_a_target_that_cannot_be_described_is_reported(self):
+        """Printing `F4  42` would bless a setting the shell then refuses."""
+        with self.assertRaises(CommandError) as context:
+            call_command("shell", show_bindings=True, stdout=StringIO())
+        message = str(context.exception)
+        self.assertIn("PYREPL_BINDINGS['F4']", message)
+        self.assertIn("42", message)
+
     @override_settings(PYREPL_USE_DEFAULT_BINDINGS=False)
     def test_an_empty_configuration_says_so(self):
         output = StringIO()
@@ -119,6 +128,17 @@ class PyreplInterfaceTests(TestCase):
             self.assertRaises(ModuleNotFoundError),
         ):
             self.command.pyrepl({"no_startup": True})
+
+    def test_another_missing_module_is_reported_rather_than_falling_back(self):
+        # Only pyrepl_hacks itself going missing means "not available here".
+        # A hook importing something absent is a broken configuration.
+        missing = ModuleNotFoundError("No module named 'tomato'", name="tomato")
+        with (
+            running_pyrepl(side_effect=missing),
+            self.assertRaises(CommandError) as context,
+        ):
+            self.command.pyrepl({"no_startup": True})
+        self.assertIn("tomato", str(context.exception))
 
     def test_a_broken_setup_is_reported_rather_than_falling_back(self):
         # An ImportError from our own setup used to read as "this interface is
