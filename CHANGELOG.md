@@ -1,6 +1,24 @@
 # Changelog
 
 
+## 0.2.0 (2026-08-23)
+
+Python 3.15 support, one breaking change, and two settings that made more noise about a problem than the problem was worth.
+
+- Python 3.15 is supported.
+  This needs [pyrepl-hacks][] 0.6 or later, which is now the minimum
+- Breaking: `PYREPL_SETUP` takes a single import path.
+  A callable, or a list of either, is now rejected by the system check and again when the REPL starts.
+  A callable has to be imported by `settings.py`, which every process reads, and this is REPL-only code.
+  A list said what one hook calling two functions already says, in Python, where the order is there to read.
+  The two together were also ambiguous: a string is a sequence, so `PYREPL_SETUP = [*PYREPL_SETUP, hook]` in a local settings file split the base path into single characters, and `manage.py check` reported no issues
+- `PYREPL_THEME` is ignored on Python 3.13 instead of refusing to start the shell.
+  Setting it there is a Python that cannot honor it, not a mistake in it, and refusing left a teammate on 3.13 with no shell at all because someone on 3.14 wanted colors.
+  `manage.py check` still warns that the setting is doing nothing there
+- `manage.py shell --show-bindings` reports a binding target it cannot describe, instead of printing its repr.
+  Printing it passed the only pre-flight there is, and then the shell failed at startup on the same setting
+
+
 ## 0.1.2 (2026-08-21)
 
 - Fix a regression in 0.1.1 that made the shell command impossible to mock.
