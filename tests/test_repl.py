@@ -9,6 +9,10 @@ from django_pyrepl_hacks import repl
 from django_pyrepl_hacks.bindings import DEFAULT_BINDINGS
 
 
+def a_hook():
+    """The hook PYREPL_SETUP points at below, patched to watch it run."""
+
+
 class SetupTests(TestCase):
     def setUp(self):
         self.repl_hacks = mock.Mock()
@@ -57,9 +61,9 @@ class SetupTests(TestCase):
             repl.setup()
         self.repl_hacks.update_theme.assert_not_called()
 
-    def test_setup_hooks_are_called(self):
-        hook = mock.Mock()
-        with override_settings(PYREPL_SETUP=hook):
+    @override_settings(PYREPL_SETUP="tests.test_repl.a_hook")
+    def test_the_setup_hook_is_called(self):
+        with mock.patch("tests.test_repl.a_hook") as hook:
             repl.setup()
         hook.assert_called_once_with()
 

@@ -77,9 +77,10 @@ def apply_theme() -> None:
         raise ImproperlyConfigured(f"PYREPL_THEME is invalid: {error}") from error
 
 
-def run_setup_hooks() -> None:
-    """Call everything listed in ``PYREPL_SETUP``."""
-    for hook in conf.get_setup_hooks():
+def run_setup_hook() -> None:
+    """Call ``PYREPL_SETUP``, if it is set."""
+    hook = conf.get_setup_hook()
+    if hook is not None:
         hook()
 
 
@@ -88,4 +89,4 @@ def setup() -> None:
     load_pyrepl_hacks()
     apply_bindings(conf.get_bindings())
     apply_theme()
-    run_setup_hooks()
+    run_setup_hook()

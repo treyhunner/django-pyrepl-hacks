@@ -13,6 +13,11 @@ def a_hook():
     """A setup hook that PYREPL_SETUP tests import by path."""
 
 
+#: Something importable that PYREPL_SETUP cannot use, for the same reason
+#: `PYREPL_SETUP = "myproject.settings.DEBUG"` would not work.
+not_a_hook = 42
+
+
 class GetBindingsTests(TestCase):
     def test_defaults_without_settings(self):
         self.assertEqual(conf.get_bindings(), DEFAULT_BINDINGS)
@@ -45,51 +50,58 @@ class GetThemeTests(TestCase):
             conf.get_theme()
 
 
-class GetSetupHooksTests(TestCase):
-    def test_empty_without_settings(self):
-        self.assertEqual(conf.get_setup_hooks(), [])
+class GetSetupHookTests(TestCase):
+    def test_none_without_settings(self):
+        self.assertIsNone(conf.get_setup_hook())
 
     @override_settings(PYREPL_SETUP="tests.test_conf.a_hook")
-    def test_a_single_import_path_works(self):
-        self.assertEqual(conf.get_setup_hooks(), [a_hook])
+    def test_an_import_path_is_resolved(self):
+        self.assertEqual(conf.get_setup_hook(), a_hook)
 
-    @override_settings(PYREPL_SETUP=a_hook)
-    def test_a_single_callable_works(self):
-        self.assertEqual(conf.get_setup_hooks(), [a_hook])
-
-    @override_settings(PYREPL_SETUP=["tests.test_conf.a_hook", a_hook])
-    def test_a_list_works(self):
-        self.assertEqual(conf.get_setup_hooks(), [a_hook, a_hook])
+    @override_settings(PYREPL_SETUP=None)
+    def test_none_means_no_hook(self):
+        self.assertIsNone(conf.get_setup_hook())
 
     @override_settings(PYREPL_SETUP="tests.test_conf.no_such_hook")
     def test_an_unimportable_path_is_rejected(self):
-        with self.assertRaises(ImproperlyConfigured):
-            conf.get_setup_hooks()
+        with self.assertRaises(ImproperlyConfigured) as context:
+            conf.get_setup_hook()
+        self.assertIn("could not import", str(context.exception))
 
-    @override_settings(PYREPL_SETUP=[42])
-    def test_a_non_callable_is_rejected(self):
-        with self.assertRaises(ImproperlyConfigured):
-            conf.get_setup_hooks()
+    @override_settings(PYREPL_SETUP="tests.test_conf.not_a_hook")
+    def test_a_path_to_something_uncallable_is_rejected(self):
+        with self.assertRaises(ImproperlyConfigured) as context:
+            conf.get_setup_hook()
+        self.assertIn("not callable", str(context.exception))
 
-    @override_settings(PYREPL_SETUP=None)
-    def test_none_means_no_hooks(self):
-        self.assertEqual(conf.get_setup_hooks(), [])
+    @override_settings(PYREPL_SETUP=a_hook)
+    def test_a_callable_is_rejected(self):
+        """settings.py is read by every process, and this is REPL-only code."""
+        with self.assertRaises(ImproperlyConfigured) as context:
+            conf.get_setup_hook()
+        self.assertIn("import path string", str(context.exception))
 
-    @override_settings(PYREPL_SETUP=42)
-    def test_something_that_is_neither_is_rejected(self):
-        with self.assertRaises(ImproperlyConfigured):
-            conf.get_setup_hooks()
+    @override_settings(PYREPL_SETUP=["tests.test_conf.a_hook"])
+    def test_a_list_is_rejected(self):
+        """A hook that calls two functions says this in Python, in order."""
+        with self.assertRaises(ImproperlyConfigured) as context:
+            conf.get_setup_hook()
+        self.assertIn("import path string", str(context.exception))
 
 
 class ValidateSetupTests(TestCase):
     """The shape check that runs as a system check, without importing hooks."""
 
-    @override_settings(PYREPL_SETUP=["tests.test_conf.a_hook", a_hook])
-    def test_callables_and_import_paths_pass(self):
+    def test_nothing_configured_passes(self):
         conf.validate_setup()
 
-    @override_settings(PYREPL_SETUP=[42])
-    def test_a_non_callable_entry_is_rejected(self):
+    @override_settings(PYREPL_SETUP="tests.test_conf.no_such_hook")
+    def test_an_import_path_is_not_resolved(self):
+        """Resolving it would import REPL-only code during every migrate."""
+        conf.validate_setup()
+
+    @override_settings(PYREPL_SETUP=a_hook)
+    def test_a_callable_is_rejected(self):
         with self.assertRaises(ImproperlyConfigured) as context:
             conf.validate_setup()
-        self.assertIn("42", str(context.exception))
+        self.assertIn("import path string", str(context.exception))

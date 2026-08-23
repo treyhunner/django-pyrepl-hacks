@@ -8,7 +8,7 @@ configured settings.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Mapping
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
@@ -18,7 +18,7 @@ from .bindings import Binding, resolve_bindings
 
 __all__ = [
     "get_bindings",
-    "get_setup_hooks",
+    "get_setup_hook",
     "get_theme",
     "validate_setup",
 ]
@@ -45,49 +45,46 @@ def get_theme() -> dict[str, str]:
     return dict(theme)
 
 
-def _setup_entries() -> list[object]:
-    """Return ``PYREPL_SETUP`` as a list, without importing anything."""
-    configured = _setting("SETUP", [])
-    if configured is None:
-        return []
-    if callable(configured) or isinstance(configured, str):
-        return [configured]
-    if not isinstance(configured, Sequence):
-        raise ImproperlyConfigured(
-            "PYREPL_SETUP should be a callable, an import path, or a list of them.",
-        )
-    return list(configured)
+def _not_an_import_path(configured: object) -> ImproperlyConfigured:
+    """Return the error for a ``PYREPL_SETUP`` that is not an import path."""
+    return ImproperlyConfigured(
+        f"PYREPL_SETUP should be an import path string, not {configured!r}.",
+    )
 
 
 def validate_setup() -> None:
-    """Check the shape of ``PYREPL_SETUP`` without importing the hooks.
+    """Check the shape of ``PYREPL_SETUP`` without importing the hook.
 
-    A system check runs during `migrate` and `collectstatic`, so importing a
+    A system check runs during `migrate` and `collectstatic`, so importing the
     hook here would drag REPL-only code into every deploy and fail it if that
-    code is not installed there. Import paths are therefore only checked for
-    being strings; whether they resolve is found out when the REPL starts.
+    code is not installed there. Whether the path resolves is therefore found
+    out when the REPL starts.
     """
-    for hook in _setup_entries():
-        if not callable(hook) and not isinstance(hook, str):
-            raise ImproperlyConfigured(f"PYREPL_SETUP entry {hook!r} is not callable.")
+    configured = _setting("SETUP", None)
+    if configured is not None and not isinstance(configured, str):
+        raise _not_an_import_path(configured)
 
 
-def get_setup_hooks() -> list[Callable[[], None]]:
-    """Return the callables configured by ``PYREPL_SETUP``.
+def get_setup_hook() -> Callable[[], None] | None:
+    """Return the callable configured by ``PYREPL_SETUP``, if there is one.
 
-    A single callable, a single dotted path, or a sequence of either is
-    accepted, since one hook is the common case and a list is the general one.
+    One import path, not a callable and not a list of them. A callable has to
+    be imported by settings.py, which every process reads, and this is
+    REPL-only code; deferring that import is the whole point of naming it as a
+    string. A list would be a second way to say what a hook calling two
+    functions already says, in Python, where the order is there to read.
     """
-    hooks: list[Callable[[], None]] = []
-    for hook in _setup_entries():
-        if isinstance(hook, str):
-            try:
-                hook = import_string(hook)
-            except ImportError as error:
-                raise ImproperlyConfigured(
-                    f"PYREPL_SETUP could not import {hook!r}: {error}",
-                ) from error
-        if not callable(hook):
-            raise ImproperlyConfigured(f"PYREPL_SETUP entry {hook!r} is not callable.")
-        hooks.append(hook)
-    return hooks
+    configured = _setting("SETUP", None)
+    if configured is None:
+        return None
+    if not isinstance(configured, str):
+        raise _not_an_import_path(configured)
+    try:
+        hook: Callable[[], None] = import_string(configured)
+    except ImportError as error:
+        raise ImproperlyConfigured(
+            f"PYREPL_SETUP could not import {configured!r}: {error}",
+        ) from error
+    if not callable(hook):
+        raise ImproperlyConfigured(f"PYREPL_SETUP {configured!r} is not callable.")
+    return hook
