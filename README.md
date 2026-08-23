@@ -6,24 +6,22 @@
 
 A Django `shell` that uses the new Python REPL, with [pyrepl-hacks][] key bindings.
 
-Django's shell tries IPython, then bpython, then `code.interact`.
-None of those is the REPL that ships with Python 3.13 and later, so `manage.py shell` gives you a worse REPL than `python` does.
-This package adds a `pyrepl` interface and puts it first.
-
-You get syntax highlighting, multi-line editing, and history search, plus Django's auto-imported models and a handful of extra key bindings.
+This package teaches `manage.py shell` about the new Python REPL (3.13+), adds some additional key bindings to the new REPL, and adds utilities for customizing the REPL.
 
 
 ## ⚠️ WARNING: here be dragons 🐉
 
 This builds on [pyrepl-hacks][], which relies on the `_pyrepl` module.
-As the `_` prefix implies, that module is not designed for public use, and a new Python release may break it.
+That module is not designed for public use, and a new Python release may eventually break this code.
 
-So this package pins its supported Python versions to the ones known to work.
+This package pins its supported Python versions to ones known to work.
 
 
 ## Installing 💾
 
 This needs Python 3.13 or 3.14 and Django 5.2 or later.
+
+Install with uv:
 
 ```console
 uv add django-pyrepl-hacks
@@ -44,8 +42,7 @@ INSTALLED_APPS = [
 ]
 ```
 
-That's the whole setup.
-`manage.py shell` will now use the new REPL:
+Now `manage.py shell` will use the new REPL:
 
 ```console
 $ ./manage.py shell
@@ -54,39 +51,21 @@ $ ./manage.py shell
 >>>
 ```
 
-The other interfaces are still there, so `manage.py shell -i ipython` works as before.
-So does everything else the shell command does: `-c`, piped stdin, `--no-imports`, and `--no-startup`.
-
-### A note on dependency groups
-
-`INSTALLED_APPS` is read wherever Django starts, so this belongs with your regular dependencies rather than in a dev-only group.
-A dev-only install plus an unconditional `INSTALLED_APPS` entry means production cannot start at all.
-
-If you would rather keep it out of production, gate the entry too:
-
-```python
-if DEBUG:
-    INSTALLED_APPS += ["django_pyrepl_hacks"]
-```
-
-Production then falls back to Django's own shell, which means a production shell loses the auto-imported models as well.
-Shipping it is usually the smaller cost: the package is pure Python and depends on nothing but Django and [pyrepl-hacks][].
-
 
 ## Default key bindings ⌨️
 
-| Key         | Command               | What it does                              |
-| ----------- | --------------------- | ----------------------------------------- |
-| `Home`      | `home`                | Move to the first character in the input   |
-| `End`       | `end`                 | Move to the last character in the input    |
-| `Alt+M`     | `move-to-indentation` | Move to the first non-space in the line    |
-| `Shift+Tab` | `dedent`              | Dedent the whole input                     |
-| `Alt+Down`  | `move-line-down`      | Swap the current line with the next one    |
+| Key         | Command               | What it does                                |
+| ----------- | --------------------- | ------------------------------------------- |
+| `Home`      | `home`                | Move to the first character in the input    |
+| `End`       | `end`                 | Move to the last character in the input     |
+| `Alt+M`     | `move-to-indentation` | Move to the first non-space in the line     |
+| `Shift+Tab` | `dedent`              | Dedent the whole input                      |
+| `Alt+Down`  | `move-line-down`      | Swap the current line with the next one     |
 | `Alt+Up`    | `move-line-up`        | Swap the current line with the previous one |
-| `Ctrl+Up`   | `previous-history`    | Move to the previous history entry         |
-| `Ctrl+Down` | `next-history`        | Move to the next history entry             |
-| `Alt+{`     | `previous-paragraph`  | Move to the previous blank line            |
-| `Alt+}`     | `next-paragraph`      | Move to the next blank line                |
+| `Ctrl+Up`   | `previous-history`    | Move to the previous history entry          |
+| `Ctrl+Down` | `next-history`        | Move to the next history entry              |
+| `Alt+{`     | `previous-paragraph`  | Move to the previous blank line             |
+| `Alt+}`     | `next-paragraph`      | Move to the next blank line                 |
 
 To see what is actually bound in your project, including your own additions:
 
@@ -104,46 +83,48 @@ Every setting is optional.
 
 A dictionary mapping a key to the thing that key should do, layered over the defaults above.
 
-The keys are human-readable: `"Ctrl+K"`, `"Alt+Up"`, `"Shift+Tab"`, `"F4"`, `"Home"`, `"PageUp"`, or a sequence like `"Ctrl+X Ctrl+R"`.
+The keys should be human-readable key bindings: `"Ctrl+K"`, `"Alt+Up"`, `"Shift+Tab"`, `"F4"`, `"Home"`, `"PageUp"`, or a sequence like `"Ctrl+X Ctrl+R"`.
 
-The values come in four flavors.
+The values must be either:
 
-**1. A string is the name of a REPL command that already exists.**
+1. A string representing the name of an installed `_pyrepl` command
+2. A function, representing a new `_pyrepl` command
+3. `django_pyrepl_hacks.insert("some text")` to insert text
 
-```python
-PYREPL_BINDINGS = {
-    "Ctrl+K": "kill-line",  # Delete from the cursor to end of line
-    "Alt+D": "kill-word",  # Delete the word after the cursor
-    "Ctrl+L": "clear-screen",
-    "Alt+<": "first-history",  # Jump to the oldest history entry
-    "Alt+>": "last-history",  # Jump to the newest
-    "Ctrl+O": "operate-and-get-next",  # Run this line, then offer the next one
-}
-```
+#### Using an existing `_pyrepl` command
 
-There are about 50 of these built in.
-`show-history`, `paste-mode`, `transpose-characters`, `yank`, `yank-pop`, `unix-word-rubout`, `backward-word`, `forward-word`, and `history-search-backward` are some of the more useful ones.
+There are about 50 built-in key commands to `_pyrepl`: `show-history`, `paste-mode`, `transpose-characters`, `yank`, `yank-pop`, `unix-word-rubout`, `backward-word`, `forward-word`, and `history-search-backward` are some of the more useful ones.
+
 [pyrepl-hacks][] adds `dedent`, `move-line-up`, `move-line-down`, `move-to-indentation`, `previous-paragraph`, and `next-paragraph`.
 
-**2. `insert(text)` types some text for you.**
+These are the default key bindings (you don't need to set these):
 
 ```python
-from django_pyrepl_hacks import insert
-
 PYREPL_BINDINGS = {
-    "Ctrl+N": insert("User.objects.filter("),
-    "F5": insert("from django.test import Client\nc = Client()\n"),
-    "F9": insert("connection.queries[-1]['sql']"),
+    "Home": "home",
+    "End": "end",
+    "Alt+M": "move-to-indentation",
+    "Shift+Tab": "dedent",
+    "Alt+Down": "move-line-down",
+    "Alt+Up": "move-line-up",
+    "Ctrl+Up": "previous-history",
+    "Ctrl+Down": "next-history",
+    "Alt+{": "previous-paragraph",
+    "Alt+}": "next-paragraph",
 }
 ```
 
-**3. A function becomes a new REPL command.**
+Note that by default, the `home` and `end` keys will move to the first character and the last character in the current code block, which is different from their default behavior in the REPL.
 
-It is registered under its own name, with underscores turned into hyphens, so `sql_of_last_query` becomes the command `sql-of-last-query`.
-It is called with the reader, which is the object holding the text you are editing:
+#### Defining a new command
+
+Setting a `PYREPL_BINDINGS` value to a function object will register that function as a `_pyrepl` new command.
+The new command will be named after the function, with underscores replaced by hyphens, so the `sql_of_last_query` function below will register as a command named `sql-of-last-query`.
+
+Functions are called with the pyrepl's `reader` object, which holds the text you are editing:
 
 ```python
-# myproject/repl.py
+# myproject/repl_extensions.py
 def sql_of_last_query(reader):
     """Type out the SQL of the most recent query."""
     from django.db import connection
@@ -153,13 +134,13 @@ def sql_of_last_query(reader):
 ```
 
 ```python
-from myproject.repl import sql_of_last_query
+from myproject.repl_extensions import sql_of_last_query
 
 PYREPL_BINDINGS = {"F9": sql_of_last_query}
 ```
 
-A function taking three arguments is called with the event too, the way [pyrepl-hacks][] `with_event=True` commands are.
-That is what you need to move the cursor, since the movement commands take the event:
+A function taking three arguments is called with the event too (just as [pyrepl-hacks][] commands with `with_event=True` are).
+This is needed to move the cursor, since movement commands require the event object:
 
 ```python
 import pyrepl_hacks as repl
@@ -171,61 +152,50 @@ def filter_call(reader, event_name, event):
     repl.commands.left(reader, event_name, event)
 ```
 
-Lambdas are rejected, because a command has to be registered under a name.
-`manage.py check` tells you so rather than waiting until you press the key.
+Lambda functions are not allowed.
 
-**4. `None` turns off one of the defaults.**
 
-```python
-PYREPL_BINDINGS = {
-    "Home": None,  # Give Home back to beginning-of-line
-    "Ctrl+Up": None,
-}
-```
+#### Inserting text
 
-Putting it together:
+Here are two example bindings that insert text:
 
 ```python
 from django_pyrepl_hacks import insert
-from myproject.repl import sql_of_last_query
 
 PYREPL_BINDINGS = {
-    "Ctrl+K": "kill-line",
-    "Ctrl+N": insert("User.objects.filter("),
-    "F9": sql_of_last_query,
-    "Home": None,
+    "Ctrl+F": insert("User.objects.filter("),
+    "F9": insert("connection.queries[-1]['sql']"),
 }
 ```
 
-```console
-$ ./manage.py shell --show-bindings
-End        end
-Alt+M      move-to-indentation
-Shift+Tab  dedent
-Alt+Down   move-line-down
-Alt+Up     move-line-up
-Ctrl+Up    previous-history
-Ctrl+Down  next-history
-Alt+{      previous-paragraph
-Alt+}      next-paragraph
-Ctrl+K     kill-line
-Ctrl+N     insert 'User.objects.filter('
-F9         sql-of-last-query
+Hitting `Ctrl+F` will insert `User.objects.filter(` and hitting `F9` will insert `connection.queries[-1]['sql']`.
+
+
+### Disabling a key binding
+
+Using `None` as the value to a `PYREPL_BINDINGS` item will reset that binding back to its `_pyrepl` default.
+
+If you would prefer the `Home` and `End` keys had their default behaviors (moving to the beginning/end of a line instead of the whole block) you could do this:
+
+```python
+PYREPL_BINDINGS = {
+    "Home": None,
+    "End": None,
+}
 ```
 
 
 ### `PYREPL_USE_DEFAULT_BINDINGS`
 
-Set to `False` to start from nothing instead of from the default bindings.
-`PYREPL_BINDINGS` is then the whole set.
+Set to `False` to turn off the default key bindings listed above.
+The [pyrepl-hacks][] commands they point at are still registered, so you can bind your own keys to them.
 
 
 ### `PYREPL_THEME`
 
-Syntax highlighting colors for the code you type at the prompt.
-The REPL colors your input as you type it, and this changes which color each kind of token gets.
+Use this to customize the syntax highlighting colors for the code you type at the REPL.
 
-The keys are the eleven token types the REPL knows about, and the values are colors:
+The keys are the eleven token types that `_pyrepl` knows about, and the values are colors:
 
 ```python
 PYREPL_THEME = {
@@ -253,75 +223,78 @@ The token types:
 | `definition`       | The name in `def name` or `class Name`  |
 | `reset`            | Everything else, and the default style  |
 
-The colors are `black`, `blue`, `cyan`, `green`, `grey`, `magenta`, `red`, `white`, and `yellow`, each of which can be prefixed:
+The colors are:
 
-| Specification              | Example                     |
-| -------------------------- | --------------------------- |
-| plain                      | `"red"`                     |
-| `bold`                     | `"bold red"`                |
-| `intense`                  | `"intense red"`             |
-| `background`               | `"background red"`          |
-| `intense background`       | `"intense background red"`  |
+| Color     | `bold` | `intense` | `background` | `intense background` |
+| --------- | ------ | --------- | ------------ | -------------------- |
+| `black`   | yes    | yes       | yes          | yes                  |
+| `blue`    | yes    | yes       | yes          | yes                  |
+| `cyan`    | yes    | yes       | yes          | yes                  |
+| `green`   | yes    | yes       | yes          | yes                  |
+| `grey`    | no     | no        | no           | no                   |
+| `magenta` | yes    | yes       | yes          | yes                  |
+| `red`     | yes    | yes       | yes          | yes                  |
+| `white`   | yes    | yes       | yes          | yes                  |
+| `yellow`  | yes    | yes       | yes          | yes                  |
+
+Every color works on its own.
+`grey` is the exception to the prefixes below: there is no `bold grey`, and asking for one is an error.
+
+The prefixes are:
+
+| Specification              | Example                          |
+| -------------------------- | -------------------------------- |
+| plain                      | `"red"`                          |
+| `bold`                     | `"bold red"`                     |
+| `intense`                  | `"intense red"`                  |
+| `background`               | `"background red"`               |
+| `intense background`       | `"intense background red"`       |
 | combined with a comma      | `"background black, bold white"` |
-| nothing at all             | `"reset"`                   |
+| nothing at all             | `"reset"`                        |
 
-So a low-contrast theme that leaves keywords loud:
+Here's a theme that works well with the Solarized Light theme I use in my Terminal:
 
 ```python
 PYREPL_THEME = {
-    "keyword": "bold magenta",
-    "keyword_constant": "bold magenta",
-    "soft_keyword": "bold magenta",
-    "builtin": "cyan",
-    "string": "green",
-    "number": "green",
-    "comment": "intense black",
-    "op": "reset",
-    "definition": "bold blue",
+    "keyword": "green",
+    "builtin": "blue",
+    "comment": "intense blue",
+    "string": "cyan",
+    "number": "cyan",
+    "definition": "blue",
+    "soft_keyword": "bold green",
+    "op": "intense green",
+    "reset": "reset, intense green",
 }
 ```
 
-Anything you leave out keeps the REPL's own color.
+Any value you leave out keeps the REPL's default color.
 
-Named themes (`PYREPL_THEME = "solarized-light"`) are not implemented yet.
-A string is not a valid value today, so they can be added without breaking a dictionary you have already written.
+Named themes (`PYREPL_THEME = "solarized-light"`) are not (yet) implemented.
 
-This setting needs Python 3.14 or later, since that is when the REPL's theme became something a program could set.
-`manage.py check` warns when it is set on an older Python, and the shell refuses to start rather than pretending it worked.
+This setting needs Python 3.14 or later.
+On an older Python it is ignored and the REPL keeps its own colors, so a project running on both versions can set it once without breaking the shell for anyone.
+`manage.py check` warns that it is doing nothing there.
 
 
 ### `PYREPL_SETUP`
 
-A callable, an import path, or a list of either, called once the REPL is configured and just before it starts.
+This is an escape hatch: a place to put code that should run when the REPL starts and nowhere else.
 
-This is the escape hatch: the one place to put code that should run when the REPL starts and nowhere else.
-Settings modules will not do: they are imported by every management command and by your web server too.
+This is the import path of a function, called once the REPL is configured and just before it starts:
 
 ```python
 PYREPL_SETUP = "myproject.repl.setup"
 ```
 
-Here's how you'd use the full [pyrepl-hacks][] API to register a command, rather than going through `PYREPL_BINDINGS`:
+An import path rather than the function itself, because `settings.py` is read by every process you run and this is code only the REPL needs.
+To do more than one thing, call them from that one function.
 
-```python
-# myproject/repl.py
-import pyrepl_hacks as repl
+Below are some example uses for that function that `PYREPL_SETUP` points to.
 
+#### Indicating the environment in your prompt
 
-def setup():
-    @repl.bind("Ctrl+X Ctrl+Q", with_event=True)
-    def insert_query(reader, event_name, event):
-        """Insert a queryset skeleton and park the cursor inside it."""
-        reader.insert("User.objects.filter()")
-        repl.commands.left(reader, event_name, event)
-```
-
-Import `pyrepl_hacks` inside the hook rather than at module level: importing it builds a REPL reader, which needs a terminal.
-
-The hook is also where the settings this package deliberately does not have go.
-
-**A prompt that tells you which environment you are in.**
-The REPL only sets `sys.ps1` and `sys.ps2` if it finds them missing, so setting them in the hook means it leaves yours alone:
+Here the management shell prompt would become `prod>>>` and `prod...` when `settings.DEBUG` isn't `True`:
 
 ```python
 def setup():
@@ -332,10 +305,9 @@ def setup():
         sys.ps1, sys.ps2 = "prod>>> ", "prod... "
 ```
 
-Worth setting up before the day you run a quick query in what turns out to be production.
-A prompt is on every line, so unlike a banner it does not scroll away.
+#### A custom banner
 
-**A banner above the prompt.**
+To print something each time the REPL launches:
 
 ```python
 def setup():
@@ -347,36 +319,36 @@ def setup():
 ```
 
 
-## When the REPL cannot run 🚧
-
-The new REPL needs a terminal, and it refuses to start under `PYTHON_BASIC_REPL` or on an old Windows.
-When that happens the `pyrepl` interface steps aside and Django moves on to IPython, bpython, or `code.interact`, exactly as it would if this package were not installed.
-
-A mistake in your own configuration is a different thing: the shell reports it rather than quietly falling back to a plain REPL.
-
-
 ## Checks ✅
 
 `manage.py check` validates the `PYREPL_*` settings it can, so a mistake turns up before you are staring at a broken prompt.
 
 Everything it reports is a warning rather than an error.
-These settings only affect the REPL, and an error would abort `migrate` and `collectstatic` over a key binding.
 
-Two mistakes it cannot catch, because both need a REPL reader and building one opens the terminal:
-a command name that does not exist, and a key combination that cannot be spelled.
-Those are caught when the shell starts, and reported against the setting they came from:
+There are four mistakes it cannot catch:
+
+1. a command name that does not exist
+2. a key combination that cannot be spelled
+3. a `PYREPL_SETUP` path that does not import, or does not point at a callable
+4. a color name that does not exist
+
+The first two need a REPL reader, and building one needs a terminal that `manage.py check` may not have.
+The third would mean importing your hook into every `migrate`, which is what naming it as a path exists to avoid.
+
+All four are caught when the shell starts, and reported against the setting they came from:
 
 ```console
 $ ./manage.py shell
 CommandError: Could not set up the REPL: PYREPL_BINDINGS['Ctrl+G'] is 'hom', which is not a command. Did you mean 'home'?
 ```
 
-`manage.py shell --show-bindings` is the cheapest way to check your configuration, since it resolves the same settings without starting a REPL.
+`manage.py shell --show-bindings` is the easiest way to check your configuration, since it resolves the same settings without starting a REPL.
 
 
 ## Contributing 🤝
 
 See [CONTRIBUTING.md][].
+
 
 [pyrepl-hacks]: https://github.com/treyhunner/pyrepl-hacks
 [CONTRIBUTING.md]: CONTRIBUTING.md
