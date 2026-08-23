@@ -24,10 +24,12 @@ test *args:
         # Run without coverage
         uv run --python 3.13 --group test python runtests.py {{ args }}
         uv run --python 3.14 --group test python runtests.py {{ args }}
+        uv run --python 3.15 --group test python runtests.py {{ args }}
     else
         # Run with coverage
         uv run --python 3.13 --group test coverage run runtests.py
         uv run --python 3.14 --group test coverage run --append runtests.py
+        uv run --python 3.15 --group test coverage run --append runtests.py
         uv run --group test coverage report
     fi
 
@@ -35,6 +37,7 @@ test *args:
 test-html *args:
     uv run --python 3.13 --group test coverage run runtests.py {{ args }}
     uv run --python 3.14 --group test coverage run --append runtests.py {{ args }}
+    uv run --python 3.15 --group test coverage run --append runtests.py {{ args }}
     uv run --group test coverage html
     @echo "Opening coverage report generated at htmlcov/index.html"
     uv run python -m webbrowser htmlcov/index.html

@@ -20,7 +20,7 @@ If the new REPL cannot run, the `pyrepl` interface steps aside and Django moves 
 
 ## Installing 💾
 
-This needs Python 3.13 or 3.14 and Django 5.2 or later.
+This needs Python 3.13, 3.14, or 3.15 and Django 5.2 or later.
 
 Install with uv:
 

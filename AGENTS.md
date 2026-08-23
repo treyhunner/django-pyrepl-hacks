@@ -10,7 +10,7 @@ This project uses uv and just.
 Run `just` to see every available task; `just setup` installs the git hooks.
 Run `just check` (format, lint, type check, and test) before finishing a change.
 
-Tests run on Python 3.13 and 3.14 and are checked against Django 5.2, 6.0, and 6.1 in CI.
+Tests run on Python 3.13, 3.14, and 3.15 and are checked against Django 5.2, 6.0, and 6.1 in CI.
 There is no Django project in the repository: `runtests.py` points at `tests/settings.py` and runs Django's own test runner.
 
 ## Things the code cannot tell you

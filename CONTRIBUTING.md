@@ -20,7 +20,7 @@ Run `just` to see every available task.
 just test
 ```
 
-That runs the suite on both supported Python versions with coverage.
+That runs the suite on every supported Python version with coverage.
 `just test tests.test_bindings` runs one module, without coverage.
 
 There is no Django project in this repository.
