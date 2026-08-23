@@ -60,10 +60,12 @@ def apply_theme() -> None:
     if not theme:
         return
     if sys.version_info < THEME_REQUIRES:
-        raise ImproperlyConfigured(
-            "PYREPL_THEME needs Python 3.14 or later. "
-            "Remove the setting to use the REPL's own colors.",
-        )
+        # Not a mistake, just a Python that cannot honor it, so the REPL comes
+        # up unthemed rather than not at all. A project on both versions keeps
+        # one settings file, and refusing to start over a color was a worse
+        # trade than the missing color, which you can see for yourself anyway.
+        # `manage.py check` reports it (W001), including from `runserver`.
+        return
 
     import pyrepl_hacks as repl
 

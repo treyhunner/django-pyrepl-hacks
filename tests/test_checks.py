@@ -39,6 +39,7 @@ class CheckSettingsTests(TestCase):
         with mock.patch.object(repl, "THEME_REQUIRES", (99, 0)):
             [warning] = check_settings()
         self.assertEqual(warning.id, "pyrepl_hacks.W001")
+        self.assertIn("no effect", warning.msg)
 
     @override_settings(PYREPL_THEME={"strng": "red"})
     def test_a_misspelled_theme_token_is_caught(self):

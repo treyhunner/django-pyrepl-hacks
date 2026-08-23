@@ -47,13 +47,14 @@ class SetupTests(TestCase):
         self.assertIn("PYREPL_THEME is invalid", str(context.exception))
 
     @override_settings(PYREPL_THEME={"string": "red"})
-    def test_a_theme_on_too_old_a_python_is_reported(self):
-        with (
-            mock.patch.object(repl, "THEME_REQUIRES", (99, 0)),
-            self.assertRaises(ImproperlyConfigured) as context,
-        ):
+    def test_a_theme_on_too_old_a_python_is_skipped_rather_than_fatal(self):
+        """One settings file has to serve a team spread across both versions.
+
+        Refusing to start meant a teammate on 3.13 had no shell at all because
+        someone on 3.14 wanted colors. `manage.py check` reports it instead.
+        """
+        with mock.patch.object(repl, "THEME_REQUIRES", (99, 0)):
             repl.setup()
-        self.assertIn("Python 3.14", str(context.exception))
         self.repl_hacks.update_theme.assert_not_called()
 
     def test_setup_hooks_are_called(self):

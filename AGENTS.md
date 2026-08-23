@@ -34,6 +34,10 @@ There is no Django project in the repository: `runtests.py` points at `tests/set
 - **`PYREPL_THEME` needs Python 3.14.**
   `_colorize.Syntax`, which `pyrepl_hacks.update_theme` builds a theme out of, does not exist in 3.13.
   `repl.THEME_REQUIRES` is the one place that version lives; `checks.py` reads it through the module so a test can patch it.
+  Setting it on 3.13 is ignored rather than fatal.
+  It is a Python that cannot honor the setting, not a mistake in the setting, and one settings file has to serve a team spread across both versions.
+  Refusing to start left a teammate on 3.13 with no shell at all because someone on 3.14 wanted colors, and a missing color is visible without being told.
+  An unknown token or color name stays fatal, because that one really is a typo.
 
 - **`interactive_console` only sets `sys.ps1` and `sys.ps2` if they are missing**, which is why a `PYREPL_SETUP` hook can set the prompts: it runs first and the REPL leaves them alone.
   There were `PYREPL_PS1`, `PYREPL_PS2`, and `PYREPL_BANNER` settings for this and for a banner line.

@@ -85,10 +85,10 @@ def _check_theme() -> list[Any]:
     if theme and sys.version_info < repl.THEME_REQUIRES:
         return [
             _warn(
-                "PYREPL_THEME needs Python 3.14 or later, so the shell will "
-                "refuse to start with it set.",
+                "PYREPL_THEME needs Python 3.14 or later, so it has no "
+                "effect here and the REPL will use its own colors.",
                 "pyrepl_hacks.W001",
-                hint="Remove the setting to use the REPL's own colors.",
+                hint="Nothing to fix if the project also runs on 3.14.",
             ),
         ]
     unknown = sorted(set(theme) - THEME_TOKENS)
