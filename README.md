@@ -9,12 +9,13 @@ A Django `shell` that uses the new Python REPL, with [pyrepl-hacks][] key bindin
 This package teaches `manage.py shell` about the new Python REPL (3.13+), adds some additional key bindings to the new REPL, and adds utilities for customizing the REPL.
 
 
-## ⚠️ WARNING: here be dragons 🐉
+## Supported Python versions 📌
 
-This builds on [pyrepl-hacks][], which relies on the `_pyrepl` module.
-That module is not designed for public use, and a new Python release may eventually break this code.
+This builds on [pyrepl-hacks][], which uses Python's internal `_pyrepl` module.
+That module is private, so this package supports only the Python versions it has been tested against, and `requires-python` says which those are.
+A newer Python will refuse to install it until a release here widens that.
 
-This package pins its supported Python versions to ones known to work.
+If the new REPL cannot run, the `pyrepl` interface steps aside and Django moves on to IPython, bpython, or `code.interact`, exactly as it would if this package were not installed.
 
 
 ## Installing 💾
